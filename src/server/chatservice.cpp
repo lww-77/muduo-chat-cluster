@@ -71,7 +71,7 @@ using namespace std;
                 json response;
                 response["msgid"]=LOGIN_MSG_ACK;
                 response["error_num"]=2;
-                response["errormsg"]="该用户已经登陆！";
+                response["errormsg"]="The user has already logged in!";
                 conn->send(response.dump());
             }
 
@@ -159,7 +159,7 @@ using namespace std;
             json response;
             response["msgid"]=LOGIN_MSG_ACK;
             response["error_num"]=1;
-            response["errormsg"]="用户不存在，或密码错误！";
+            response["errormsg"]="The user does not exist, or the password is incorrect!";
             conn->send(response.dump());
         }
     }

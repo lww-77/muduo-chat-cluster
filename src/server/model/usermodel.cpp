@@ -2,6 +2,7 @@
 #include"db.h"
 #include"user.hpp"
 #include<iostream>
+#include<atomic>
 using namespace std;
 
 //User表的增加方法
@@ -89,5 +90,4 @@ void UserModel::resetState()
         mysql.update(sql);
 
     }
-
 }

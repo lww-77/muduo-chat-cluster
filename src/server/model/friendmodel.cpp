@@ -44,8 +44,8 @@ vector<User> FriendModel::query(int userid)
             mysql_free_result(res);
             return vec;
         }
-        return vec;
+       
     }
-
+    return vec;
 
 }

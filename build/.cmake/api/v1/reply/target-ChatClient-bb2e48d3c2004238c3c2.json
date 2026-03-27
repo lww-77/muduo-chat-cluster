@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "/home/lww/CHAT/bin/ChatClient"
+			"path" : "/home/lww/CHAT/muduo-chat-cluster/bin/ChatClient"
 		}
 	],
 	"backtrace" : 1,
@@ -83,34 +83,34 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -g"
+					"fragment" : "-g"
 				}
 			],
 			"includes" : 
 			[
 				{
 					"backtrace" : 4,
-					"path" : "/home/lww/CHAT/include"
+					"path" : "/home/lww/CHAT/muduo-chat-cluster/include"
 				},
 				{
 					"backtrace" : 5,
-					"path" : "/home/lww/CHAT/include/server"
+					"path" : "/home/lww/CHAT/muduo-chat-cluster/include/server"
 				},
 				{
 					"backtrace" : 6,
-					"path" : "/home/lww/CHAT/thridparty"
+					"path" : "/home/lww/CHAT/muduo-chat-cluster/thridparty"
 				},
 				{
 					"backtrace" : 7,
-					"path" : "/home/lww/CHAT/include/server/db"
+					"path" : "/home/lww/CHAT/muduo-chat-cluster/include/server/db"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "/home/lww/CHAT/include/server/model"
+					"path" : "/home/lww/CHAT/muduo-chat-cluster/include/server/model"
 				},
 				{
 					"backtrace" : 9,
-					"path" : "/home/lww/CHAT/include/server/redis"
+					"path" : "/home/lww/CHAT/muduo-chat-cluster/include/server/redis"
 				}
 			],
 			"language" : "CXX",
@@ -126,7 +126,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-g -g",
+				"fragment" : "-g",
 				"role" : "flags"
 			},
 			{

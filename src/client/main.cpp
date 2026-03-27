@@ -7,6 +7,7 @@
 #include<ctime>
 #include<functional>
 #include<unordered_map>
+#include<atomic>
 using namespace std;
 using json = nlohmann::json;
 
@@ -17,14 +18,17 @@ using json = nlohmann::json;
 #include<netinet/in.h>
 #include<arpa/inet.h>
 #include<semaphore.h>
-#include<atomic>
+
 
 
 #include"group.hpp"
 #include"user.hpp"
 #include"public.hpp"
 
-
+// 全局变量，用于判断是否为异常退出
+atomic_bool g_active_logout = false;
+//用于判断注销登录失败时的全局变量
+atomic_bool need_reconnect=true;
 //记录当前系统登录的用户信息
 User g_currentUser;
 //记录当前登录用户的好友列表信息
@@ -53,138 +57,138 @@ void mainMenu(int clientfd);
 //聊天客户端实现 main线程用作发送线程，子线程用作接收线程
 int main(int argc, char **argv)
 {
-    if(argc<3)
-    {
-        cerr<<"command invalid! example: ./ChatClient 192.168.88.129 6000"<<endl;
-        exit(-1);
-    }
-
-    //解析通过命令行参数传递的ip和port
-    char* ip = argv[1];
-    uint16_t port = atoi(argv[2]);
-
-    //创建client端的socket
-    int clientfd = socket(AF_INET,SOCK_STREAM,0);
-    if(-1==clientfd)
-    {
-        cerr<<"socket create error"<<endl;
-        exit(-1);
-    }
-
-    //填写client需要连接的server信息ip+port
-    sockaddr_in server;
-    memset(&server,0,sizeof(sockaddr_in));
-    
-    server.sin_family=AF_INET;
-    server.sin_port=htons(port);
-    server.sin_addr.s_addr=inet_addr(ip);
-
-    //client 和server 对接
-    if(-1==connect(clientfd,(sockaddr*)&server,sizeof(sockaddr_in)))
-    {
-        cerr<<"connect server error"<<endl;
-        close(clientfd);
-        exit(-1);
-    }
-
-    //初始化信号量资源计数
-    sem_init(&_rwsem,0,0);
-
-    //连接服务器成功，启动子线程
-    std::thread readTask(readTaskHandler, clientfd);
-    readTask.detach();
-
-    //main线程用于接受用户输入 负责发送数据
-    for (;;)
-    {
-        // 显示受界面菜单 登录 注册 退出
-        cout << "==========================" << endl;
-        cout << "1、LOGIN" << endl;
-        cout << "2、REGISTER" << endl;
-        cout << "3、QUIT" << endl;
-        cout << "==========================" << endl;
-        cout << "choice:";
-        int choice = 0;
-        cin >> choice;
-        cin.get(); // 读掉缓冲区残存的回车
-
-        switch (choice)
+        if(argc<3)
         {
+            cerr<<"command invalid! example: ./ChatClient 192.168.88.129 8000"<<endl;
+            exit(-1);
+        }
 
-            case 1: // login业务
+        //解析通过命令行参数传递的ip和port
+        char* ip = argv[1];
+        uint16_t port = atoi(argv[2]);
+        //创建client端的socket
+        int clientfd = socket(AF_INET,SOCK_STREAM,0);
+        if (-1 == clientfd)
+        {
+            cerr << "socket create error" << endl;
+            exit(-1);
+        }
+
+        // 填写client需要连接的server信息ip+port
+        sockaddr_in server;
+        memset(&server, 0, sizeof(sockaddr_in));
+
+        server.sin_family = AF_INET;
+        server.sin_port = htons(port);
+        server.sin_addr.s_addr = inet_addr(ip);
+
+        // client 和server 对接
+        if (-1 == connect(clientfd, (sockaddr *)&server, sizeof(sockaddr_in)))
+        {
+            cerr << "connect server error" << endl;
+            close(clientfd);
+            exit(-1);
+        }
+
+        // 初始化信号量资源计数
+        sem_init(&_rwsem, 0, 0);
+
+        // 连接服务器成功，启动子线程
+        std::thread readTask(readTaskHandler, clientfd);
+        readTask.detach();
+
+        //main线程用于接受用户输入 负责发送数据
+        for (;;)
+        {   
+
+            // 显示受界面菜单 登录 注册 退出
+            cout << "==========================" << endl;
+            cout << "1、LOGIN" << endl;
+            cout << "2、REGISTER" << endl;
+            cout << "3、QUIT" << endl;
+            cout << "==========================" << endl;
+            cout << "choice:";
+            int choice = 0;
+            cin >> choice;
+            cin.get(); // 读掉缓冲区残存的回车
+
+            switch (choice)
             {
-                int id = 0;
-                cout << "userid:";
-                cin >> id;
-                cin.get();
-                cout << "userpassword:";
-                char pwd[50] = {0};
-                cin.getline(pwd, 50);
 
-                json js;
-                js["msgid"] = LOGIN_MSG;
-                js["id"] = id;
-                js["password"] = pwd;
-                string request = js.dump();
-
-
-                g_isLoginSuccess=false;
-                int len = send(clientfd, request.c_str(), strlen(request.c_str()) + 1, 0);
-                if (-1 == len)
+                case 1: // login业务
                 {
-                    cerr << "send login response error" << request << endl;
+                    int id = 0;
+                    cout << "userid:";
+                    cin >> id;
+                    cin.get();
+                    cout << "userpassword:";
+                    char pwd[50] = {0};
+                    cin.getline(pwd, 50);
+
+                    json js;
+                    js["msgid"] = LOGIN_MSG;
+                    js["id"] = id;
+                    js["password"] = pwd;
+                    string request = js.dump();
+
+
+                    g_isLoginSuccess=false;
+                    int len = send(clientfd, request.c_str(), strlen(request.c_str()) + 1, 0);
+                    if (-1 == len)
+                    {
+                        cerr << "send login response error" << request << endl;
+                    }
+
+                    sem_wait(&_rwsem);//等待信号量，子线程处理完登录响应，通知处理
+
+                    if(g_isLoginSuccess==true)
+                    {
+                        // 进入聊天主菜单页面
+                        isMainMenuRunning = true;
+                        mainMenu(clientfd);
+                    }
+
+
+                    break;
                 }
 
-                sem_wait(&_rwsem);//等待信号量，子线程处理完登录响应，通知处理
-
-                if(g_isLoginSuccess==true)
+                case 2: // register业务
                 {
-                    // 进入聊天主菜单页面
-                    isMainMenuRunning = true;
-                    mainMenu(clientfd);
+                    char name[50] = {0};
+                    char pwd[50] = {0};
+                    cout << "username:";
+                    cin.getline(name, 50);
+                    cout << "userpassword:";
+                    cin.getline(pwd, 50);
+
+                    json js;
+                    js["msgid"] = REG_MSG;
+                    js["name"] = name;
+                    js["password"] = pwd;
+                    string request = js.dump();
+
+                    int len = send(clientfd, request.c_str(), strlen(request.c_str()) + 1, 0);
+                    if (-1 == len)
+                    {
+                        cerr << "send reg response error" << endl;
+                    }
+                    sem_wait(&_rwsem);
+                    
+                    break;
                 }
 
-
-                break;
-            }
-
-            case 2: // register业务
-            {
-                char name[50] = {0};
-                char pwd[50] = {0};
-                cout << "username:";
-                cin.getline(name, 50);
-                cout << "userpassword:";
-                cin.getline(pwd, 50);
-
-                json js;
-                js["msgid"] = REG_MSG;
-                js["name"] = name;
-                js["password"] = pwd;
-                string request = js.dump();
-
-                int len = send(clientfd, request.c_str(), strlen(request.c_str()) + 1, 0);
-                if (-1 == len)
-                {
-                    cerr << "send reg response error" << endl;
-                }
-                sem_wait(&_rwsem);
                 
-                break;
-            }
-
+                case 3: // 退出业务
+                    close(clientfd);
+                    sem_destroy(&_rwsem);
+                    exit(0);
+                default:
+                    cerr << "invalid input" << endl;
+                    break;
             
-            case 3: // 退出业务
-                close(clientfd);
-                sem_destroy(&_rwsem);
-                exit(0);
-            default:
-                cerr << "invalid input" << endl;
-                break;
-        
-        }     
-    }
-    return 0;
+            }     
+        }
+        return 0;
 }
 //显示当前登录成功用户的基本信息
 void showCurrentUserData()
@@ -230,12 +234,14 @@ void doLoginResponse(json& responsejs)
         g_currentUser.setId(responsejs["id"].get<int>());
         g_currentUser.setName(responsejs["name"]);
 
+        // 初始化好友列表
+        g_currentUserFriendList.clear();
+        // 初始化群组列表
+        g_currentUserGroupList.clear();
+
         // 记录当前好友信息列表
         if (responsejs.contains("friends"))
         {
-            // 初始化
-            g_currentUserFriendList.clear();
-
             vector<string> vec = responsejs["friends"];
             for (string &str : vec)
             {
@@ -250,9 +256,6 @@ void doLoginResponse(json& responsejs)
         // 记录当前群组列表信息
         if (responsejs.contains("groups"))
         {
-            // 初始化
-            g_currentUserGroupList.clear();
-
             vector<string> groupVec = responsejs["groups"];
             for (string &groupstr : groupVec)
             {
@@ -321,10 +324,10 @@ void readTaskHandler(int clientfd)
     {
         char buffer[1024]={0};
         int len = recv(clientfd,buffer,1024,0);
-        if(-1==len || len==0)
+        printf("recv returned %d, errno=%d\n", len, errno);
+        if(len<=0)
         {
-            close(clientfd);
-            exit(-1);
+            exit(0);
         }
 
         //接收ChatServer转发的数据，反序列化生成json对象
